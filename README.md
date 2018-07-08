@@ -3,5 +3,5 @@ A simple search engine for serching a how many times a word occurs in a main htm
 To run with gcc compiler:
 1. open linux terminal in the program directory.
 2. type: gcc -o wordSearch wordSearch.c
-(this will produce a program called wordSearch.
-3. to run it: ./wordSearch <word> <filename>
+(this will produce a program called wordSearch)
+3. to run it: ./wordSearch <word> <filename> .
