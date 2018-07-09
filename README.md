@@ -5,3 +5,4 @@ To run with gcc compiler:
 2. type: gcc -o wordSearch wordSearch.c
 (this will produce a program called wordSearch)
 3. to run it: ./wordSearch \<word\> \<filename\> 
+(filname - a text file with a list of hosts)
