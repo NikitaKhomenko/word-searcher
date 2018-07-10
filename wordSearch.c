@@ -13,32 +13,38 @@
 #define BUFFER_SIZE 100000
 #define url_length 40
 #define portNum 80  //no need for different port numbers, site will redirect to correct port.
-static int siteCounter;
+static int numOfSites;
 
 typedef struct site
 {
     char url[url_length];  // site address
-//    int port;  // site port
+    int wordNumOfOccurrences;
+
 } SITE;
 
-int Socket_connect(char *host, in_port_t port);
-SITE* FillSiteArray(SITE* siteArr, char* fname);
-int CountWord(char buffer[BUFFER_SIZE], char* word);
+int getConnectedSocket(char *host, in_port_t port);
+SITE* FillSiteArray(SITE* siteArray, char* fname);
+int CountWordOccurrencesInSite(char *buffer, char *word);
+void SortAndPrintArray(SITE* siteArray);
+int compareByWordNumOfOccurrences( const void* a, const void* b);
+
 
 //// program receives 2 arguments: 1.word to search. 2.data file. argv[0] is the name of the program ////
-int main(int argc, char *argv[]){
-    SITE* siteArr;
-    siteArr = FillSiteArray(siteArr, argv[2]);
-    int fd;
+int main(int argNum, char *argv[])
+{
+    SITE* siteArray;
+    siteArray = FillSiteArray(siteArray, argv[2]);
+    int fd; // = file-descriptor
     char buffer[BUFFER_SIZE];
 
-    int wordCounter = 0;
-    for (int site = 0; site < siteCounter; ++site)
-    {
-        int sz = siteCounter;
-        // fd = file-descriptor
-        fd = Socket_connect(siteArr[site].url, portNum);
+    fprintf(stderr, "Calculating...\n");
 
+    int wordCounter = 0;
+    for (int site = 0; site < numOfSites; ++site)
+    {
+        fd = getConnectedSocket(siteArray[site].url, portNum);
+
+        // get the root file from the site
         write(fd, "GET /\r\n", strlen("GET /\r\n"));
 
         bzero(buffer, BUFFER_SIZE);
@@ -46,12 +52,14 @@ int main(int argc, char *argv[]){
         // fill the buffer
         read(fd, buffer, BUFFER_SIZE - 1);
 
-        wordCounter = CountWord(buffer, argv[1]);
-        fprintf(stderr, "%s  ", siteArr[site].url);
-        fprintf(stderr, "%i\n", wordCounter);
+        wordCounter = CountWordOccurrencesInSite(buffer, argv[1]); // argv[1] = keyword
+        siteArray[site].wordNumOfOccurrences = wordCounter;
+
 
         bzero(buffer, BUFFER_SIZE);
     }
+
+    SortAndPrintArray(siteArray);
 
     shutdown(fd, SHUT_RDWR);
     close(fd);
@@ -59,43 +67,35 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-SITE* FillSiteArray(SITE* siteArr, char* fname)
+SITE* FillSiteArray(SITE* siteArray, char* fname)
 {
-    siteCounter = 0;
+    numOfSites = 0;
     int sizeArr = 10;
-    siteArr = malloc(sizeArr*sizeof(SITE));
-//    char strToCompare[5];
+    siteArray = malloc(sizeArr*sizeof(SITE));
 
     FILE *dataFile = fopen(fname, "r");
     if (dataFile == NULL) {
         fprintf(stderr, "Failed opening the file. Exiting!\n");
         exit(1);
     }
-
-    while (fscanf(dataFile, "%s\n", siteArr[siteCounter].url) == 1)
+    // scan the following host address, exit loop after scanning last string
+    while (fscanf(dataFile, "%s\n", siteArray[numOfSites].url) == 1)
     {
-        if(siteCounter == sizeArr)
+        if(numOfSites == sizeArr)
         {
-            siteArr = realloc(siteArr, siteCounter*2*sizeof(SITE));
+            siteArray = realloc(siteArray, numOfSites*2*sizeof(SITE));
             sizeArr *= 2;
         }
 
-//        memcpy(strToCompare, siteArr[siteCounter].url, 5);
-
-//        if (strcmp(strToCompare, "https") == 0)
-//            siteArr[siteCounter].port = 443;
-//        else if (strcmp(strToCompare, "http:") == 0)
-//            siteArr[siteCounter].port = 80;
-
-        siteCounter++;
+        numOfSites++;
     }
 
     fclose(dataFile);
-    return siteArr;
+    return siteArray;
 
 }
 
-int CountWord(char buffer[BUFFER_SIZE], char* word)
+int CountWordOccurrencesInSite(char *buffer, char *word)
 {
     int wordCounter = 0;
     char *tmp = buffer;
@@ -107,8 +107,34 @@ int CountWord(char buffer[BUFFER_SIZE], char* word)
     return wordCounter;
 }
 
+void SortAndPrintArray(SITE* siteArray)
+{
+    qsort(siteArray, (size_t) numOfSites, sizeof(SITE), compareByWordNumOfOccurrences );
 
-int Socket_connect(char *host, in_port_t port)
+    for (int site = 0; site < numOfSites; ++site)
+    {
+        fprintf(stderr, "%s  ", siteArray[site].url);
+        fprintf(stderr, "%i\n", siteArray[site].wordNumOfOccurrences);
+    }
+}
+
+int compareByWordNumOfOccurrences( const void* s1, const void* s2)
+{
+    SITE *site1= (SITE *)s1;
+    SITE *site2 = (SITE *)s2;
+
+
+    if ( site1->wordNumOfOccurrences == site2->wordNumOfOccurrences )
+        return 0;
+    else if ( site1->wordNumOfOccurrences < site2->wordNumOfOccurrences )
+        return 1;
+    else
+        return -1;
+}
+
+
+
+int getConnectedSocket(char *host, in_port_t port)
 {
     struct hostent *hp;
     struct sockaddr_in addr;
