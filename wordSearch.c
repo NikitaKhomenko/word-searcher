@@ -60,6 +60,7 @@ int main(int argNum, char *argv[])
     }
 
     SortAndPrintArray(siteArray);
+    free(siteArray);
 
     shutdown(fd, SHUT_RDWR);
     close(fd);
